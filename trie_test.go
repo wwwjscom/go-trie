@@ -39,28 +39,27 @@
 package trie
 
 import (
-	"testing"
-	"container/vector"
-	"os"
-	"io"
 	"fmt"
-	"scanner"
-	"utf8"
+	"io"
+	"os"
+	"testing"
+	"text/scanner"
+	"unicode/utf8"
 )
 
-func checkValues(trie *Trie, s string, v *vector.IntVector, t *testing.T) {
+func checkValues(trie *Trie, s string, v []int32, t *testing.T) {
 	value, ok := trie.GetValue(s)
-	values := value.(*vector.IntVector)
+	values := value.([]int32)
 	if !ok {
 		t.Fatalf("No value returned for string '%s'", s)
 	}
 
-	if values.Len() != v.Len() {
-		t.Fatalf("Length mismatch: Values for '%s' should be %v, but got %v", s, *v, *values)
+	if len(values) != len(v) {
+		t.Fatalf("Length mismatch: Values for '%s' should be %v, but got %v", s, v, values)
 	}
-	for i := 0; i < values.Len(); i++ {
-		if values.At(i) != v.At(i) {
-			t.Fatalf("Content mismatch: Values for '%s' should be %v, but got %v", s, *v, *values)
+	for i := 0; i < len(values); i++ {
+		if values[i] != v[i] {
+			t.Fatalf("Content mismatch: Values for '%s' should be %v, but got %v", s, v, values)
 		}
 	}
 }
@@ -97,7 +96,7 @@ func TestTrie(t *testing.T) {
 	}
 
 	// three strings in total
-	if trie.Members().Len() != 3 {
+	if len(trie.Members()) != 3 {
 		t.Error("trie should contain exactly three member strings")
 	}
 
@@ -122,20 +121,16 @@ func TestMultiFind(t *testing.T) {
 	trie.AddString(`hena`)
 	trie.AddString(`henat`)
 
-	expected := new(vector.StringVector)
-	expected.Push(`hyph`)
+	expected := []string{`hyph`}
 	found := trie.AllSubstrings(`hyphenation`)
-	if found.Len() != expected.Len() {
-		t.Errorf("expected %v but found %v", *expected, *found)
+	if len(found) != len(expected) {
+		t.Errorf("expected %v but found %v", expected, found)
 	}
 
-	expected.Cut(0, expected.Len())
-	expected.Push(`hen`)
-	expected.Push(`hena`)
-	expected.Push(`henat`)
+	expected = []string{`hen`, `hena`, `henat`}
 	found = trie.AllSubstrings(`henation`)
-	if found.Len() != expected.Len() {
-		t.Errorf("expected %v but found %v", *expected, *found)
+	if len(found) != len(expected) {
+		t.Errorf("expected %v but found %v", expected, found)
 	}
 }
 
@@ -146,7 +141,7 @@ func TestTrieValues(t *testing.T) {
 	trie := NewTrie()
 
 	str := "hyphenation"
-	hyp := &vector.IntVector{0, 3, 0, 0, 2, 5, 4, 2, 0, 2, 0}
+	hyp := []int32{0, 3, 0, 0, 2, 5, 4, 2, 0, 2, 0}
 
 	hyphStr := "hy3phe2n5a4t2io2n"
 
@@ -160,7 +155,7 @@ func TestTrieValues(t *testing.T) {
 		t.Errorf("value trie should have %d nodes (the number of characters in 'hyphenation')", len(str))
 	}
 
-	if trie.Members().Len() != 1 {
+	if len(trie.Members()) != 1 {
 		t.Error("value trie should have only one member string")
 	}
 
@@ -180,13 +175,13 @@ func TestTrieValues(t *testing.T) {
 	if trie.Size() != len(str) {
 		t.Errorf("value trie should consist of %d nodes, instead has %d", len(str), trie.Size())
 	}
-	if trie.Members().Len() != 1 {
+	if len(trie.Members()) != 1 {
 		t.Error("value trie should have only one member string")
 	}
 
 	mem := trie.Members()
-	if mem.At(0) != str {
-		t.Errorf("Expected first member string to be '%s', got '%s'", str, mem.At(0))
+	if mem[0] != str {
+		t.Errorf("Expected first member string to be '%s', got '%s'", str, mem[0])
 	}
 
 	checkValues(trie, `hyphenation`, hyp, t)
@@ -199,12 +194,11 @@ func TestTrieValues(t *testing.T) {
 	// test prefix values
 	prefixedStr := `5emnix` // this is actually a string from the en_US TeX hyphenation trie
 	purePrefixedStr := `emnix`
-	values := &vector.IntVector{5, 0, 0, 0, 0, 0}
+	values := []int32{5, 0, 0, 0, 0, 0}
 	trie.AddValue(purePrefixedStr, values)
 
 	if trie.Size() != len(purePrefixedStr) {
-		t.Errorf("Size of trie after adding '%s' should be %d, was %d", purePrefixedStr,
-			len(purePrefixedStr), trie.Size())
+		t.Errorf("Size of trie after adding '%s' should be %d, was %d", purePrefixedStr, len(purePrefixedStr), trie.Size())
 	}
 
 	checkValues(trie, `emnix`, values, t)
@@ -233,74 +227,69 @@ func TestMultiFindValue(t *testing.T) {
 	trie.AddPatternString(`hena4`)
 	trie.AddPatternString(`hen5at`)
 
-	v1 := &vector.IntVector{0, 3, 0, 0}
-	v2 := &vector.IntVector{0, 2, 0}
-	v3 := &vector.IntVector{0, 0, 0, 4}
-	v4 := &vector.IntVector{0, 0, 5, 0, 0}
+	v1 := []int32{0, 3, 0, 0}
+	v2 := []int32{0, 2, 0}
+	v3 := []int32{0, 0, 0, 4}
+	v4 := []int32{0, 0, 5, 0, 0}
 
-	expectStr := new(vector.StringVector)
-	expectVal := new(vector.Vector) // contains elements of type *vector.IntVector
+	expectStr := []string{}
+	expectVal := []interface{}{} // contains elements of type *vector.IntVector
 
-	expectStr.Push(`hyph`)
-	expectVal.Push(v1)
+	expectStr = append(expectStr, `hyph`)
+	expectVal = append(expectVal, v1)
 	found, values := trie.AllSubstringsAndValues(`hyphenation`)
-	if found.Len() != expectStr.Len() {
-		t.Errorf("expected %v but found %v", *expectStr, *found)
+	if len(found) != len(expectStr) {
+		t.Errorf("expected %v but found %v", expectStr, found)
 	}
-	if values.Len() != expectVal.Len() {
-		t.Errorf("Length mismatch: expected %v but found %v", *expectVal, *values)
+	if len(values) != len(expectVal) {
+		t.Errorf("Length mismatch: expected %v but found %v", expectVal, values)
 	}
-	for i := 0; i < found.Len(); i++ {
-		if found.At(i) != expectStr.At(i) {
-			t.Errorf("Strings content mismatch: expected %v but found %v", *expectStr, *found)
+	for i := 0; i < len(found); i++ {
+		if found[i] != expectStr[i] {
+			t.Errorf("Strings content mismatch: expected %v but found %v", expectStr, found)
 			break
 		}
 	}
-	for i := 0; i < values.Len(); i++ {
-		ev := expectVal.At(i).(*vector.IntVector)
-		fv := values.At(i).(*vector.IntVector)
-		if ev.Len() != fv.Len() {
-			t.Errorf("Value length mismatch: expected %v but found %v", *ev, *fv)
+	for i := 0; i < len(values); i++ {
+		ev := expectVal[i].([]int32)
+		fv := values[i].([]int32)
+		if len(ev) != len(fv) {
+			t.Errorf("Value length mismatch: expected %v but found %v", ev, fv)
 			break
 		}
-		for i := 0; i < ev.Len(); i++ {
-			if ev.At(i) != fv.At(i) {
-				t.Errorf("Value mismatch: expected %v but found %v", *ev, *fv)
+		for i := 0; i < len(ev); i++ {
+			if ev[i] != fv[i] {
+				t.Errorf("Value mismatch: expected %v but found %v", ev, fv)
 				break
 			}
 		}
 	}
 
-	expectStr.Cut(0, expectStr.Len())
-	expectVal.Cut(0, expectVal.Len())
-
-	expectStr.AppendVector(&vector.StringVector{`hen`, `hena`, `henat`})
-	expectVal.Push(v2)
-	expectVal.Push(v3)
-	expectVal.Push(v4)
+	expectStr = []string{`hen`, `hena`, `henat`}
+	expectVal = []interface{}{v2, v3, v4}
 	found, values = trie.AllSubstringsAndValues(`henation`)
-	if found.Len() != expectStr.Len() {
-		t.Errorf("expected %v but found %v", *expectStr, *found)
+	if len(found) != len(expectStr) {
+		t.Errorf("expected %v but found %v", expectStr, found)
 	}
-	if values.Len() != expectVal.Len() {
-		t.Errorf("Length mismatch: expected %v but found %v", *expectVal, *values)
+	if len(values) != len(expectVal) {
+		t.Errorf("Length mismatch: expected %v but found %v", expectVal, values)
 	}
-	for i := 0; i < found.Len(); i++ {
-		if found.At(i) != expectStr.At(i) {
-			t.Errorf("Strings content mismatch: expected %v but found %v", *expectStr, *found)
+	for i := 0; i < len(found); i++ {
+		if found[i] != expectStr[i] {
+			t.Errorf("Strings content mismatch: expected %v but found %v", expectStr, found)
 			break
 		}
 	}
-	for i := 0; i < values.Len(); i++ {
-		ev := expectVal.At(i).(*vector.IntVector)
-		fv := values.At(i).(*vector.IntVector)
-		if ev.Len() != fv.Len() {
-			t.Errorf("Value length mismatch: expected %v but found %v", *ev, *fv)
+	for i := 0; i < len(values); i++ {
+		ev := expectVal[i].([]int32)
+		fv := values[i].([]int32)
+		if len(ev) != len(fv) {
+			t.Errorf("Value length mismatch: expected %v but found %v", ev, fv)
 			break
 		}
-		for i := 0; i < ev.Len(); i++ {
-			if ev.At(i) != fv.At(i) {
-				t.Errorf("Value mismatch: expected %v but found %v", *ev, *fv)
+		for i := 0; i < len(ev); i++ {
+			if ev[i] != fv[i] {
+				t.Errorf("Value mismatch: expected %v but found %v", ev, fv)
 				break
 			}
 		}
@@ -313,7 +302,7 @@ func TestMultiFindValue(t *testing.T) {
 //   cat patterns-en.go | gotest -benchmarks=".*"
 // This is because, for some unknown reason, os.Open() always returns 'resource temporarily unavailable'.
 
-func loadPatterns(reader io.Reader) (*Trie, os.Error) {
+func loadPatterns(reader io.Reader) (*Trie, error) {
 	trie := NewTrie()
 	var s scanner.Scanner
 	s.Init(reader)
@@ -330,8 +319,7 @@ func loadPatterns(reader io.Reader) (*Trie, os.Error) {
 			case `patterns`, `exceptions`:
 				which = ident
 			default:
-				return nil, os.ErrorString(fmt.Sprintf("Unrecognized identifier '%s' at position %v",
-					ident, s.Pos()))
+				return nil, fmt.Errorf("Unrecognized identifier '%s' at position %v", ident, s.Pos())
 			}
 		case scanner.String, scanner.RawString:
 			// trim the quotes from around the string
@@ -349,7 +337,7 @@ func loadPatterns(reader io.Reader) (*Trie, os.Error) {
 	return trie, nil
 }
 
-var benchmarkTrie *Trie = nil
+var benchmarkTrie *Trie
 
 func setupTrie() *Trie {
 	/*
@@ -360,7 +348,7 @@ func setupTrie() *Trie {
 		}
 	*/
 	if benchmarkTrie == nil {
-		var err os.Error
+		var err error
 		benchmarkTrie, err = loadPatterns(os.Stdin)
 		if err != nil {
 			fmt.Printf("Failed to load patterns from Stdin: %s\n", err)
@@ -389,7 +377,7 @@ func BenchmarkHyphenation(b *testing.B) {
 		return
 	}
 	testStr := `.hyphenation.`
-	v := make([]int, utf8.RuneCountInString(testStr))
+	v := make([]int32, utf8.RuneCountInString(testStr))
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -397,19 +385,19 @@ func BenchmarkHyphenation(b *testing.B) {
 			v[i] = 0
 		}
 		vIndex := 0
-		for pos, _ := range testStr {
+		for pos := range testStr {
 			t := testStr[pos:]
 			strs, values := trie.AllSubstringsAndValues(t)
-			for i := 0; i < values.Len(); i++ {
-				str := strs.At(i)
-				val := values.At(i).(*vector.IntVector)
+			for i := 0; i < len(values); i++ {
+				str := strs[i]
+				val := values[i].([]int32)
 
-				diff := val.Len() - len(str)
+				diff := len(val) - len(str)
 				vs := v[vIndex-diff:]
 
-				for i := 0; i < val.Len(); i++ {
-					if val.At(i) > vs[i] {
-						vs[i] = val.At(i)
+				for i := 0; i < len(val); i++ {
+					if val[i] > vs[i] {
+						vs[i] = val[i]
 					}
 				}
 			}
